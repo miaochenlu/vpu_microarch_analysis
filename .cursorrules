@@ -1,0 +1,644 @@
+# Technical Documentation Rules for Hardware/RTL Analysis
+
+## Context
+These rules are for creating professional-grade microarchitecture documentation by analyzing HDL source code (Chisel, Verilog, SystemVerilog). The goal is to produce documentation comparable to industry standards like Saturn Vectors.
+
+---
+
+## Core Principles
+
+### 1. Code-First Approach
+**ALWAYS verify claims against actual source code**
+
+✅ DO:
+- Reference specific files and line numbers (e.g., "Fetch.scala lines 73-76")
+- Quote actual code snippets with proper context
+- Trace logic through the actual implementation
+- Verify bit widths, register counts, and calculations
+
+❌ DON'T:
+- Make assumptions without code verification
+- Use vague references like "the code does X"
+- Guess at implementation details
+- Copy descriptions from comments without verification
+
+**Example**:
+```markdown
+❌ BAD: "The cache is probably around 1KB"
+✅ GOOD: "The L0 cache is 1KB (32 entries × 256 bits = 8192 bits = 1024 bytes)"
+         Code: Fetch.scala line 56: `val indices = 32`
+               Fetch.scala line 76: `val l0data = Reg(Vec(indices, UInt(256.W)))`
+```
+
+---
+
+### 2. Multi-Level Documentation Structure
+
+**Organize documentation hierarchically from high-level to low-level**
+
+```
+Level 1: Introduction & Overview (10-20 pages)
+  - Design philosophy
+  - System-level block diagram
+  - Key features summary
+  
+Level 2: Subsystem Overview (5-10 pages each)
+  - Component identification
+  - High-level dataflow
+  - Interfaces between modules
+  
+Level 3: Component Deep-Dive (15-30 pages each)
+  - Detailed microarchitecture
+  - State machines
+  - Timing diagrams
+  - Code analysis
+  
+Level 4: Examples & Walkthroughs (20+ pages)
+  - Step-by-step execution traces
+  - Cycle-by-cycle analysis
+  - Corner cases
+```
+
+**File Naming Convention**:
+- `01_introduction/README.md` (overview)
+- `02_top_level/README.md` (system view)
+- `03_component/README.md` (subsystem overview)
+- `03_component/detailed_module.md` (deep-dive)
+- `03_component/walkthrough.md` (examples)
+
+---
+
+### 3. Always Include Concrete Examples
+
+**Abstract descriptions are NOT enough—provide executable examples**
+
+✅ REQUIRED for each major component:
+1. **Real instruction sequences** with hex encodings
+2. **Cycle-by-cycle execution** with state transitions
+3. **Register/signal values** at each step
+4. **Edge cases and corner cases**
+5. **Performance analysis** (best/average/worst case)
+
+**Template for Examples**:
+```markdown
+## Example: [Scenario Name]
+
+### Setup
+- Instruction sequence (assembly + hex)
+- Initial state (register values, scoreboard)
+- Assumptions (cache hits, no conflicts)
+
+### Cycle-by-Cycle Execution
+
+#### Cycle N: [Stage Name]
+**Input**: [What enters this stage]
+**Action**: [What the hardware does]
+**Output**: [What results]
+**State Update**: [How internal state changes]
+
+[Repeat for each cycle]
+
+### Performance Analysis
+- Cycles: X
+- IPC: Y
+- Bottleneck: Z
+```
+
+---
+
+### 4. Visual Communication
+
+**Use diagrams strategically—but make them accurate**
+
+**Mermaid Diagram Types**:
+1. **Block diagrams** (`graph TD/LR`): Component connections
+2. **Sequence diagrams**: Timing and protocol interactions
+3. **State machines**: FSM states and transitions
+4. **Flowcharts**: Decision logic
+
+**Best Practices**:
+- Keep diagrams focused (max 10-15 nodes)
+- Use consistent naming with code
+- Add legends when needed
+- Color-code by function (compute/memory/control)
+
+**Example**:
+```markdown
+```mermaid
+graph TD
+    Fetch[Fetch Unit<br/>256-bit] --> Buffer[Inst Buffer<br/>16 entries]
+    Buffer --> Decode[Decode<br/>4-way]
+    
+    style Fetch fill:#e1f5ff
+    style Decode fill:#fff4e1
+```
+```
+
+---
+
+### 5. Quantitative Analysis
+
+**Always include numbers—performance is measurable**
+
+✅ REQUIRED metrics:
+- **Capacity**: Cache size, buffer depth, register count
+- **Bandwidth**: Bits per cycle, instructions per cycle
+- **Latency**: Cycles for operation completion
+- **Throughput**: Operations per cycle (sustained)
+- **Area/Power**: If synthesis data available
+
+**Format as Tables**:
+```markdown
+| Metric | Value | Calculation/Source |
+|--------|-------|-------------------|
+| L0 Cache Size | 1024 bytes | 32 entries × 32 bytes |
+| Fetch Bandwidth | 256 bits/cycle | 8 × 32-bit instructions |
+| Dispatch Width | 4 inst/cycle | 4 parallel decode lanes |
+```
+
+---
+
+## Detailed Guidelines
+
+### Code Analysis Methodology
+
+**Step 1: Identify Module Hierarchy**
+```scala
+// Read top-level file first
+class Core(...) extends Module {
+  val submodule1 = Module(new SubModule1(...))  // ← List all instantiations
+  val submodule2 = Module(new SubModule2(...))
+}
+```
+
+**Action**: Create a module tree before deep-diving
+
+**Step 2: Extract IO Interface**
+```scala
+class MyModule extends Module {
+  val io = IO(new Bundle {
+    val input = Input(UInt(32.W))   // ← Document all IOs
+    val output = Output(Bool())
+  })
+}
+```
+
+**Action**: Create interface table with signal names, types, directions
+
+**Step 3: Identify Internal State**
+```scala
+val counter = RegInit(0.U(8.W))  // ← Register (state)
+val result = Wire(UInt(32.W))    // ← Combinational (no state)
+```
+
+**Action**: Separate stateful vs. combinational logic
+
+**Step 4: Trace Critical Paths**
+- Follow data from input to output
+- Identify pipeline stages
+- Count register stages for latency
+
+**Step 5: Find State Machines**
+```scala
+object State extends ChiselEnum {
+  val sIdle, sActive, sDone = Value
+}
+```
+
+**Action**: Draw state diagram, document transitions
+
+---
+
+### Writing Style
+
+**Language**: English (technical documentation standard)
+
+**Tone**: 
+- Professional but accessible
+- Explain "why" not just "what"
+- Assume reader is a hardware engineer (not expert in this specific design)
+
+**Sentence Structure**:
+- ✅ Active voice: "The fetch unit retrieves instructions"
+- ❌ Passive voice: "Instructions are retrieved"
+- ✅ Short sentences for clarity (15-20 words average)
+- ❌ Long, complex sentences with multiple clauses
+
+**Technical Terms**:
+- Define acronyms on first use: "Load/Store Unit (LSU)"
+- Use industry-standard terminology when available
+- Create glossary for custom terms
+
+**Code Formatting**:
+```markdown
+Inline code: Use `backticks` for signal names, registers, values
+Code blocks: Use ```scala for snippets, include comments
+```
+
+---
+
+### Common Pitfalls to Avoid
+
+#### Pitfall 1: Vague Descriptions
+❌ "The module processes data efficiently"
+✅ "The module achieves 4 operations/cycle with 2-cycle latency"
+
+#### Pitfall 2: Missing Edge Cases
+❌ Only document happy path
+✅ Document: normal operation, hazards, conflicts, corner cases
+
+#### Pitfall 3: Inconsistent Terminology
+❌ Mix "instruction buffer", "inst buffer", "I-buffer"
+✅ Pick one term and use consistently (add aliases in glossary)
+
+#### Pitfall 4: Stale Documentation
+❌ Write once, never update
+✅ Include code line references so updates are traceable
+
+#### Pitfall 5: Theory Without Practice
+❌ "This could dispatch 4 instructions per cycle"
+✅ "Example: 4-instruction dispatch (add, sub, or, and) with no dependencies"
+
+#### Pitfall 6: Missing Context
+❌ Jump directly into register-level details
+✅ Start with "why this module exists" → "what it does" → "how it works"
+
+#### Pitfall 7: Unverified Claims
+❌ "The cache is probably direct-mapped"
+✅ "The cache is direct-mapped (1-way), verified by single tag array in code"
+
+---
+
+### Quality Checklist
+
+Before finalizing any documentation section, verify:
+
+**Accuracy** (Code Verification):
+- [ ] All numbers traced to source code
+- [ ] Line numbers referenced for key claims
+- [ ] Logic verified through code reading
+- [ ] Examples tested against ISA spec
+
+**Completeness** (Coverage):
+- [ ] All major features documented
+- [ ] Edge cases identified
+- [ ] Interfaces fully specified
+- [ ] Examples for typical operations
+
+**Clarity** (Readability):
+- [ ] Technical terms defined
+- [ ] Diagrams support text
+- [ ] Examples are concrete
+- [ ] Flow is logical (high→low level)
+
+**Consistency** (Style):
+- [ ] Terminology uniform
+- [ ] Formatting consistent
+- [ ] Naming matches code
+- [ ] Cross-references work
+
+**Usefulness** (Value):
+- [ ] Answers "how" and "why"
+- [ ] Includes performance data
+- [ ] Identifies bottlenecks
+- [ ] Suggests optimizations
+
+---
+
+## Document Templates
+
+### Template 1: Component Overview
+
+```markdown
+# [Component Name]
+
+## Overview
+[2-3 sentence summary: what it does, why it exists]
+
+**Key Features**:
+- Feature 1 (with metric)
+- Feature 2 (with metric)
+- Feature 3 (with metric)
+
+## Architecture
+[Block diagram showing internal structure]
+
+## Interface Specification
+
+| Signal | Direction | Width | Description |
+|--------|-----------|-------|-------------|
+| input1 | Input | 32-bit | ... |
+| output1 | Output | 8-bit | ... |
+
+## Microarchitecture
+
+### [Sub-component 1]
+[Detailed description with code references]
+
+### [Sub-component 2]
+[Detailed description with code references]
+
+## Timing Diagram
+[Sequence diagram or waveform]
+
+## Performance Metrics
+[Table of latency, throughput, etc.]
+
+## Examples
+[Link to walkthrough document]
+
+---
+**Source**: `path/to/file.scala` (lines X-Y)
+```
+
+---
+
+### Template 2: Walkthrough Example
+
+```markdown
+## Example N: [Scenario Name]
+
+### Instruction Sequence
+```assembly
+0xADDR: inst1  # Comment
+0xADDR: inst2  # Comment
+```
+
+### Assumptions
+- [List all assumptions]
+
+### Cycle-by-Cycle Execution
+
+#### Cycle N: [Stage]
+**Input State**:
+```
+Register/Signal: Value
+```
+
+**Actions**:
+1. Step 1
+2. Step 2
+
+**Output State**:
+```
+Register/Signal: New Value
+```
+
+**Decisions**:
+- Why X happened
+- Why Y didn't happen
+
+[Repeat for each cycle]
+
+### Performance Summary
+- Total cycles: X
+- IPC: Y
+- Bottleneck: Z
+- Optimization opportunities: [List]
+```
+
+---
+
+## Advanced Techniques
+
+### Technique 1: Differential Analysis
+When documenting similar components (e.g., ALU vs. FPU):
+1. Create comparison table first
+2. Document common features once
+3. Highlight differences explicitly
+
+### Technique 2: Layered Abstraction
+For complex modules:
+1. **Layer 1**: Block diagram (boxes and arrows)
+2. **Layer 2**: Pipeline stages (what happens when)
+3. **Layer 3**: Logic equations (how it's computed)
+4. **Layer 4**: Physical implementation (if available)
+
+Don't mix layers—keep each section focused.
+
+### Technique 3: Scenario-Based Documentation
+For complex interactions (e.g., hazard handling):
+1. Enumerate scenarios (normal, RAW, WAW, etc.)
+2. Document each as separate example
+3. Create decision tree showing which scenario applies when
+
+### Technique 4: Incremental Complexity
+Start simple, add complexity:
+1. **Version 1**: Single instruction (no hazards)
+2. **Version 2**: Add dependencies (RAW hazard)
+3. **Version 3**: Add resource conflicts
+4. **Version 4**: Add all constraints simultaneously
+
+### Technique 5: Cross-Reference Validation
+Before publishing:
+1. Create dependency graph of all claims
+2. Verify each claim has code reference
+3. Check for contradictions
+4. Ensure examples are consistent with specs
+
+---
+
+## Tools and Workflow
+
+### Recommended Tools
+- **Mermaid**: Diagrams (integrated in Markdown)
+- **WaveDrom**: Timing diagrams (for signal waveforms)
+- **Chisel IDE**: Code navigation (IntelliJ with Scala plugin)
+- **ripgrep**: Fast code searching
+- **VS Code**: Markdown preview with Mermaid support
+
+### AI-Assisted Workflow
+
+**Step 1: Code Reading**
+```
+Prompt: "Analyze [file.scala] and identify:
+1. All module instantiations
+2. IO bundle signals
+3. Internal registers
+4. State machines"
+```
+
+**Step 2: Logic Tracing**
+```
+Prompt: "Trace the dataflow from [input] to [output] in [file.scala]
+Show all intermediate signals and transformations"
+```
+
+**Step 3: Diagram Generation**
+```
+Prompt: "Create a Mermaid block diagram for [module] showing:
+- Input/output ports
+- Internal sub-modules
+- Key connections"
+```
+
+**Step 4: Example Generation**
+```
+Prompt: "Create a cycle-by-cycle example of [operation] showing:
+- Initial state
+- Actions per cycle
+- Final state
+Use actual register names from [file.scala]"
+```
+
+**Step 5: Verification**
+```
+Prompt: "Verify the following claim against [file.scala]:
+[Your claim]
+Provide line numbers and code snippets"
+```
+
+---
+
+## Project-Specific Conventions
+
+### For Coral NPU Documentation:
+
+**Naming**:
+- Use "Coral NPU" (not "coral npu" or "CORAL NPU")
+- Component names match code: `SCore`, `VCore`, `RvvCore`
+- Signal names use code style: `io.inst.valid`
+
+**Units**:
+- Memory: bytes, KB, MB (not bits unless specifically discussing width)
+- Time: cycles (not ns unless absolute timing known)
+- Performance: IPC (instructions per cycle), not MIPS
+
+**Code References**:
+- Format: `Fetch.scala lines 73-76` or `Decode.scala line 257`
+- Always include line numbers for verification
+- Quote 3-10 lines of context (not single lines out of context)
+
+**Diagrams**:
+- Colors: Blue for fetch/frontend, Yellow for decode, Red for hazards, Green for memory
+- Font: Use `<br/>` for multi-line labels in Mermaid
+- Style: Keep consistent with established diagrams
+
+---
+
+## Quality Standards
+
+### Minimum Acceptable Quality:
+- ✅ All claims have code references
+- ✅ At least 1 diagram per major section
+- ✅ At least 1 example per component
+- ✅ All interfaces documented (signals, protocols)
+- ✅ Performance metrics included
+
+### Professional Quality (Target):
+- ✅ Multiple examples (normal + edge cases)
+- ✅ Cycle-accurate timing analysis
+- ✅ Quantitative performance data
+- ✅ Comparison with alternatives/standards
+- ✅ Optimization discussion
+
+### Exceptional Quality (Aspire To):
+- ✅ Executable examples (with test code)
+- ✅ Performance modeling (analytical)
+- ✅ Synthesis results (area/power if available)
+- ✅ Design rationale (why choices made)
+- ✅ Trade-off analysis
+
+---
+
+## Documentation Maintenance
+
+### Keeping Docs Current:
+
+**When code changes**:
+1. Grep for affected line number references
+2. Re-verify claims in those sections
+3. Update examples if behavior changed
+4. Update diagrams if structure changed
+
+**Version tracking**:
+```markdown
+---
+Last Updated: [Date]
+Code Version: [Git commit hash]
+Verified Against: [Branch/tag]
+---
+```
+
+**Change log**:
+Maintain a `CHANGES.md` documenting major updates
+
+---
+
+## Success Metrics
+
+**Documentation is successful if**:
+- Hardware engineer can implement the design from docs alone
+- Compiler developer can optimize code generation
+- Student can understand the architecture
+- Verification engineer can write testbenches
+- Reader time to understanding < 4 hours for full system
+
+**Red flags** (indicates poor documentation):
+- Questions about basic functionality
+- Misunderstanding of interfaces
+- Incorrect assumptions about timing
+- Cannot reproduce examples
+- Contradictions with code
+
+---
+
+## Final Checklist (Before Publishing)
+
+**Section-Level Review**:
+- [ ] Every section has at least 1 code reference
+- [ ] Every major component has a diagram
+- [ ] Every operation has an example
+- [ ] All numbers are sourced
+- [ ] All terminology is consistent
+
+**Document-Level Review**:
+- [ ] Table of contents is complete
+- [ ] Cross-references work
+- [ ] No orphaned sections (all reachable from TOC)
+- [ ] Consistent formatting throughout
+- [ ] Spell-checked and grammar-checked
+
+**Project-Level Review**:
+- [ ] Architecture matches top-level description
+- [ ] Components sum to system behavior
+- [ ] No contradictions between chapters
+- [ ] Examples use consistent assumptions
+- [ ] Performance data is self-consistent
+
+---
+
+## Remember
+
+**The goal is not just to document the code—it's to make the design understandable.**
+
+Good documentation:
+- Answers "why" not just "what"
+- Shows by example
+- Admits limitations
+- Guides the reader
+
+**If in doubt, add more examples and diagrams.**
+
+---
+
+## Appendix: Common Mistakes and Fixes
+
+| Mistake | Fix |
+|---------|-----|
+| "This module does X" | "This module does X by doing Y (see lines A-B)" |
+| "Fast cache" | "1-cycle latency on L0 hit (vs 3-cycle L1)" |
+| "Handles branches" | "Static prediction: backward→taken, forward→not-taken" |
+| "Efficient design" | "4-way dispatch achieves 3.2 IPC average (measured)" |
+| Missing diagram | Add block diagram + sequence diagram |
+| Abstract example | Add hex instructions + cycle-by-cycle trace |
+| Undefined term | Add glossary entry or inline definition |
+| Unsourced claim | Add file + line reference |
+
+---
+
+**Version**: 1.0  
+**Based on**: Coral NPU documentation project (2024)  
+**Quality Target**: Saturn Vectors standard  
+**Language**: English
+
