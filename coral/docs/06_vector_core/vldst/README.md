@@ -284,7 +284,3 @@ vstq v48, (x12)
 
 **Source File**: `coral/codes/coralnpu/hdl/chisel/src/coralnpu/vector/VLdSt.scala` (330 lines)
 
-**Last Updated**: 2025-10-19  
-**Verification Status**: Code-verified, line-by-line analysis  
-**Compliance**: ~40% RISC-V Vector baseline (basic load/store only)
-
